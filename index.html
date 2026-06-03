@@ -926,7 +926,7 @@ async function analyzeInstrument(item, assetClass) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-5",
       max_tokens: 400,
       tools: [{ type: "web_search_20250305", name: "web_search" }],
       messages: [{ role: "user", content: prompt }]
@@ -964,7 +964,7 @@ En español, en 3-4 oraciones concretas: ¿qué condiciones macro dominan? ¿cu�
   const resp = await fetch(API_ENDPOINT,{
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:prompt}]})
+    body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:400,messages:[{role:"user",content:prompt}]})
   });
   const respData = await resp.json();
   const fullText = (respData.content||[]).map(b=>b.type==='text'?b.text:'').join('') || 'No se pudo generar el resumen.';
@@ -1377,7 +1377,7 @@ En español, proporciona en 4-5 oraciones: correlación entre los activos, diver
 
   const resp=await fetch(API_ENDPOINT,{
     method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,tools:[{type:"web_search_20250305",name:"web_search"}],messages:[{role:"user",content:prompt}]})
+    body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:500,tools:[{type:"web_search_20250305",name:"web_search"}],messages:[{role:"user",content:prompt}]})
   });
   const data=await resp.json();
   const full=(data.content||[]).map(b=>b.type==='text'?b.text:'').join('') || 'No se pudo generar el análisis.';
