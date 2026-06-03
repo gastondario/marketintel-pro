@@ -966,8 +966,8 @@ En español, en 3-4 oraciones concretas: ¿qué condiciones macro dominan? ¿cu�
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:prompt}]})
   });
-  const data = await resp.json();
-  const fullText = (data.content||[]).map(b=>b.type==='text'?b.text:'').join('') || 'No se pudo generar el resumen.';
+  const respData = await resp.json();
+  const fullText = (respData.content||[]).map(b=>b.type==='text'?b.text:'').join('') || 'No se pudo generar el resumen.';
 
   // Efecto de escritura letra por letra
   el.innerHTML = '';
