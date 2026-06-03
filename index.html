@@ -764,6 +764,11 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2)}
 
 <script>
 // ═══════════════════════════════════════════════════════════
+// API ENDPOINT — tu Worker de Cloudflare
+// ═══════════════════════════════════════════════════════════
+const API_ENDPOINT = 'https://marketintel.gastondariogomez.workers.dev';
+
+// ═══════════════════════════════════════════════════════════
 // DATA
 // ═══════════════════════════════════════════════════════════
 const FX_PAIRS = [
@@ -915,9 +920,7 @@ async function analyzeInstrument(item, assetClass) {
 
   // ── URL del proxy — cambiá esto por tu Worker URL después de desplegarlo ──
   // Ejemplo: https://marketintel.TU-USUARIO.workers.dev
-  const API_URL = window.location.hostname === 'localhost' || window.location.protocol === 'file:'
-    ? 'https://api.anthropic.com/v1/messages'   // local: directo (para testing)
-    : 'https://marketintel.gastondariogomez.workers.dev';                             // producción: via Worker proxy
+  const API_URL = API_ENDPOINT;
 
   const fetchPromise = fetch(API_URL, {
     method: "POST",
@@ -958,31 +961,25 @@ ${itemSummary}
 
 En español, en 3-4 oraciones concretas: ¿qué condiciones macro dominan? ¿cuál es la mejor oportunidad ahora y por qué? ¿cuál evitar? Usa datos reales del contexto actual de mercado.`;
 
-  const resp = await fetch("https://api.anthropic.com/v1/messages",{
+  const resp = await fetch(API_ENDPOINT,{
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,stream:true,messages:[{role:"user",content:prompt}]})
+    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:prompt}]})
   });
-  const reader = resp.body.getReader(), dec = new TextDecoder();
-  let full = '';
+  const data = await resp.json();
+  const fullText = (data.content||[]).map(b=>b.type==='text'?b.text:'').join('') || 'No se pudo generar el resumen.';
+
+  // Efecto de escritura letra por letra
   el.innerHTML = '';
-  while(true) {
-    const {done,value} = await reader.read();
-    if(done) break;
-    for(const line of dec.decode(value).split('\n')) {
-      if(!line.startsWith('data: ')) continue;
-      const raw = line.slice(6).trim();
-      if(raw==='[DONE]') break;
-      try {
-        const ev = JSON.parse(raw);
-        if(ev.type==='content_block_delta'&&ev.delta?.text) {
-          full += ev.delta.text;
-          el.innerHTML = full+'<span class="cursor"></span>';
-        }
-      } catch{}
-    }
-  }
-  el.innerHTML = full;
+  let i = 0;
+  const speed = 12;
+  await new Promise(resolve => {
+    const typer = setInterval(() => {
+      if (i >= fullText.length) { clearInterval(typer); el.innerHTML = fullText; resolve(); return; }
+      i += 3;
+      el.innerHTML = fullText.slice(0, i) + '<span class="cursor"></span>';
+    }, speed);
+  });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1378,24 +1375,21 @@ ${summary}
 
 En español, proporciona en 4-5 oraciones: correlación entre los activos, diversificación efectiva, riesgos concentrados, sugerencias de rebalanceo y cuál posición agregar ahora dado el contexto macro actual. Sé específico y práctico.`;
 
-  const resp=await fetch("https://api.anthropic.com/v1/messages",{
+  const resp=await fetch(API_ENDPOINT,{
     method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,stream:true,tools:[{type:"web_search_20250305",name:"web_search"}],messages:[{role:"user",content:prompt}]})
+    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,tools:[{type:"web_search_20250305",name:"web_search"}],messages:[{role:"user",content:prompt}]})
   });
-  const reader=resp.body.getReader(),dec=new TextDecoder();
-  let full='';
+  const data=await resp.json();
+  const full=(data.content||[]).map(b=>b.type==='text'?b.text:'').join('') || 'No se pudo generar el análisis.';
   txt.innerHTML='';
-  while(true){
-    const {done,value}=await reader.read();
-    if(done)break;
-    for(const line of dec.decode(value).split('\n')){
-      if(!line.startsWith('data: '))continue;
-      const raw=line.slice(6).trim();
-      if(raw==='[DONE]')break;
-      try{const ev=JSON.parse(raw);if(ev.type==='content_block_delta'&&ev.delta?.text){full+=ev.delta.text;txt.innerHTML=full+'<span class="cursor"></span>';}}catch{}
-    }
-  }
-  txt.innerHTML=full;
+  let i=0;
+  await new Promise(resolve=>{
+    const typer=setInterval(()=>{
+      if(i>=full.length){clearInterval(typer);txt.innerHTML=full;resolve();return;}
+      i+=3;
+      txt.innerHTML=full.slice(0,i)+'<span class="cursor"></span>';
+    },12);
+  });
 }
 
 // ═══════════════════════════════════════════════════════════
