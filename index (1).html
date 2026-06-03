@@ -864,32 +864,45 @@ async function runScan(assetClass) {
   const results = {};
   const total = cfg.data.length;
   let done = 0;
-  const BATCH = 3;
   const items = cfg.data;
 
-  for (let i = 0; i < items.length; i += BATCH) {
-    const batch = items.slice(i, i + BATCH);
-    statusEl.textContent = `⟳ Analizando ${batch.map(b => cfg.keyFn(b)).join(', ')}...`;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-    await Promise.all(batch.map(async item => {
-      const key = cfg.keyFn(item);
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const key = cfg.keyFn(item);
+    statusEl.textContent = `⟳ Analizando ${key}... (${i+1}/${total})`;
+
+    let attempt = 0;
+    let success = false;
+    while (attempt < 3 && !success) {
       try {
         const r = await analyzeInstrument(item, assetClass);
         results[key] = r;
         aiCache[key] = r;
+        success = true;
       } catch(e) {
-        results[key] = { signal:'neutral', score:45, reasoning:'Sin datos. Reintentá más tarde.', keyFactor:'Error de conexión', risk:'medio' };
+        attempt++;
+        if (attempt < 3) {
+          statusEl.textContent = `⏳ ${key}: límite alcanzado, reintentando en 5s...`;
+          await sleep(5000);
+        } else {
+          results[key] = { signal:'neutral', score:45, reasoning:'Sin datos tras varios intentos.', keyFactor:'Error de conexión', risk:'medio' };
+        }
       }
-      done++;
-      const pct = Math.round((done / total) * 100);
-      progressFill.style.width = pct + '%';
-      renderInstrumentCards(cfg.cards, cfg.data, assetClass, cfg.keyFn, results);
-      updateStrip(cfg.strip, cfg.data, cfg.keyFn, results, assetClass);
-    }));
+    }
+    done++;
+    progressFill.style.width = Math.round((done / total) * 100) + '%';
+    renderInstrumentCards(cfg.cards, cfg.data, assetClass, cfg.keyFn, results);
+    updateStrip(cfg.strip, cfg.data, cfg.keyFn, results, assetClass);
+
+    // Pausa entre consultas para no superar el límite de Anthropic
+    if (i < items.length - 1) await sleep(1500);
   }
 
   statusEl.textContent = `✓ ${total} instrumentos analizados · Generando resumen...`;
   document.getElementById(cfg.summary).style.display = 'block';
+  await new Promise(r => setTimeout(r, 2000));
   await streamSummary(cfg.text, cfg.data, results, assetClass, cfg.keyFn);
 
   statusEl.textContent = `✓ Escaneo completo`;
@@ -926,7 +939,7 @@ async function analyzeInstrument(item, assetClass) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-5",
       max_tokens: 400,
       tools: [{ type: "web_search_20250305", name: "web_search" }],
       messages: [{ role: "user", content: prompt }]
@@ -964,7 +977,7 @@ En español, en 3-4 oraciones concretas: ¿qué condiciones macro dominan? ¿cu�
   const resp = await fetch(API_ENDPOINT,{
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:prompt}]})
+    body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:400,messages:[{role:"user",content:prompt}]})
   });
   const respData = await resp.json();
   const fullText = (respData.content||[]).map(b=>b.type==='text'?b.text:'').join('') || 'No se pudo generar el resumen.';
@@ -1377,7 +1390,7 @@ En español, proporciona en 4-5 oraciones: correlación entre los activos, diver
 
   const resp=await fetch(API_ENDPOINT,{
     method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,tools:[{type:"web_search_20250305",name:"web_search"}],messages:[{role:"user",content:prompt}]})
+    body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:500,tools:[{type:"web_search_20250305",name:"web_search"}],messages:[{role:"user",content:prompt}]})
   });
   const data=await resp.json();
   const full=(data.content||[]).map(b=>b.type==='text'?b.text:'').join('') || 'No se pudo generar el análisis.';
